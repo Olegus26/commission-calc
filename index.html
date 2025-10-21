@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Гибкий калькулятор комиссий</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    h2 { margin-bottom: 10px; }
+    label { display: block; margin: 6px 0 4px; font-weight: bold; }
+    input, select { padding: 6px; margin-bottom: 10px; width: 220px; }
+    .accordion {
+      background: #eee;
+      cursor: pointer;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      text-align: left;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    .accordion:hover { background: #ddd; }
+    .panel {
+      padding: 10px;
+      display: none;
+      border: 1px solid #ccc;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      background: #fafafa;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #999;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+    .result p { margin: 5px 0; font-weight: normal; }
+  </style>
+</head>
+<body>
+  <h2>Гибкий калькулятор распределения комиссий</h2>
+
+  <label>Цена объекта:</label>
+  <input type="number" id="price" placeholder="Введите сумму">
+
+  <label>Тип сделки:</label>
+  <select id="dealType">
+    <option value="sale">Продажа</option>
+    <option value="rent">Аренда</option>
+  </select>
+
+  <label>Сделка:</label>
+  <select id="dealMode">
+    <option value="clean">Чистая</option>
+    <option value="half">С посредником (пополам)</option>
+  </select>
+
+  <label>Кто ведет сделку:</label>
+  <select id="role">
+    <option value="agent">Агент</option>
+    <option value="trainee">Стажёр</option>
+    <option value="director">Директор (личная)</option>
+  </select>
+
+  <label><input type="checkbox" id="vnos"> Есть внос (объект занёс другой агент)</label>
+  <label><input type="checkbox" id="expert"> Есть эксперт</label>
+
+  <!-- Настройки комиссий -->
+  <button class="accordion">Настройки комиссий</button>
+  <div class="panel">
+    <label>Продажа (%): <input type="number" id="salePercent" value="5"></label>
+    <label>Аренда (%): <input type="number" id="rentPercent" value="50"></label>
+    <label>Фиксированная комиссия (если < 20000): <input type="number" id="fixedMin" value="1000"></label>
+  </div>
+
+  <!-- Распределение долей -->
+  <button class="accordion">Распределение долей</button>
+  <div class="panel">
+    <label>Агент: <input type="number" id="agentPercent" value="60"></label>
+    <label>Стажёр: <input type="number" id="traineePercent" value="55"></label>
+    <label>Директор (с агентом): <input type="number" id="directorPercent" value="15"></label>
+    <label>Директор (личная продажа): <input type="number" id="directorSelfPercent" value="70"></label>
+    <label>Директор (личная аренда): <input type="number" id="directorRentPercent" value="20"></label>
+    <label>Шеф (при продаже с агентом): <input type="number" id="chefPercent" value="25"></label>
+    <label>Шеф (личная продажа): <input type="number" id="chefSelfPercent" value="30"></label>
+    <label>Шеф (личная аренда): <input type="number" id="chefRentPercent" value="80"></label>
+    <label>Эксперт (от доли директора, %): <input type="number" id="expertPercent" value="50"></label>
+  </div>
+
+  <!-- Откаты -->
+  <button class="accordion">Откаты</button>
+  <div class="panel">
+    <label>Чистая сделка (%): <input type="number" id="vnosClean" value="5"></label>
+    <label>С посредником (%): <input type="number" id="vnosHalf" value="2.5"></label>
+  </div>
+
+  <button onclick="calculate()">Рассчитать</button>
+
+  <div class="result" id="result">
+    <h3>Результат:</h3>
+    <p>Агент: 0</p>
+    <p>Директор: 0</p>
+    <p>Шеф: 0</p>
+    <p>Эксперт: 0</p>
+    <p>Внос: 0</p>
+  </div>
+
+  <script>
+    // аккордеоны
+    document.querySelectorAll(".accordion").forEach(button => {
+      button.addEventListener("click", () => {
+        const panel = button.nextElementSibling;
+        panel.style.display = (panel.style.display === "block") ? "none" : "block";
+      });
+    });
+
+    function calculate() {
+      const price = parseFloat(document.getElementById("price").value) || 0;
+      const dealType = document.getElementById("dealType").value;
+      const dealMode = document.getElementById("dealMode").value;
+      const role = document.getElementById("role").value;
+      const vnos = document.getElementById("vnos").checked;
+      const expertEnabled = document.getElementById("expert").checked;
+
+      // настройки
+      const salePercent = parseFloat(document.getElementById("salePercent").value) / 100;
+      const rentPercent = parseFloat(document.getElementById("rentPercent").value) / 100;
+      const fixedMin = parseFloat(document.getElementById("fixedMin").value);
+
+      const agentPercent = parseFloat(document.getElementById("agentPercent").value) / 100;
+      const traineePercent = parseFloat(document.getElementById("traineePercent").value) / 100;
+      const directorPercent = parseFloat(document.getElementById("directorPercent").value) / 100;
+      const directorSelfPercent = parseFloat(document.getElementById("directorSelfPercent").value) / 100;
+      const directorRentPercent = parseFloat(document.getElementById("directorRentPercent").value) / 100;
+      const chefPercent = parseFloat(document.getElementById("chefPercent").value) / 100;
+      const chefSelfPercent = parseFloat(document.getElementById("chefSelfPercent").value) / 100;
+      const chefRentPercent = parseFloat(document.getElementById("chefRentPercent").value) / 100;
+      const expertPercent = parseFloat(document.getElementById("expertPercent").value) / 100;
+
+      const vnosClean = parseFloat(document.getElementById("vnosClean").value) / 100;
+      const vnosHalf = parseFloat(document.getElementById("vnosHalf").value) / 100;
+
+      let agent = 0, director = 0, chef = 0, expert = 0, vnosAmount = 0;
+      let commission = 0;
+
+      // === База ===
+      if (dealType === "sale") {
+        commission = (price < 20000) ? fixedMin : price * salePercent;
+      } else if (dealType === "rent") {
+        commission = price * rentPercent;
+      }
+
+      // Если с посредником → пополам
+      if (dealMode === "half") {
+        commission = commission / 2;
+      }
+
+      // === Распределение ===
+      if (dealType === "sale") {
+        if (role === "director") {
+          director = commission * directorSelfPercent;
+          chef = commission * chefSelfPercent;
+        } else {
+          if (role === "agent") {
+            agent = commission * agentPercent;
+            director = commission * directorPercent;
+          } else if (role === "trainee") {
+            agent = commission * traineePercent;
+            director = commission * (1 - traineePercent - chefPercent);
+          }
+          chef = commission * chefPercent;
+        }
+      }
+
+      if (dealType === "rent") {
+        if (role === "director") {
+          director = commission * directorRentPercent;
+          chef = commission * chefRentPercent;
+        } else {
+          agent = commission * agentPercent;
+          director = commission * directorPercent;
+          chef = commission * chefPercent;
+        }
+      }
+
+      // === Эксперт ===
+      if (expertEnabled && director > 0) {
+        expert = director * expertPercent;
+        director = director - expert;
+      }
+
+      // === Внос (откат) платит только ведущий ===
+      if (vnos) {
+        let percent = (dealMode === "clean") ? vnosClean : vnosHalf;
+        if (role === "agent" || role === "trainee") {
+          vnosAmount = agent * percent;
+          agent = agent - vnosAmount;
+        } else if (role === "director") {
+          vnosAmount = director * percent;
+          director = director - vnosAmount;
+        }
+      }
+
+      // === Вывод ===
+      document.getElementById("result").innerHTML = `
+        <h3>Результат (от комиссии ${commission.toFixed(2)}):</h3>
+        <p>Агент: ${agent.toFixed(2)}</p>
+        <p>Директор: ${director.toFixed(2)}</p>
+        <p>Шеф: ${chef.toFixed(2)}</p>
+        <p>Эксперт: ${expert.toFixed(2)}</p>
+        <p>Внос: ${vnosAmount.toFixed(2)}</p>
+      `;
+    }
+  </script>
+</body>
+</html>
